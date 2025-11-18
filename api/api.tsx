@@ -1,22 +1,51 @@
 import { GridProps, Houses, Hospitals, Clusters } from '@/types/Grid';
 import { ResponseType } from '@/types/ResponseType';
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000'; // TODO: Change if needed
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'; // TODO: Change if needed
+
+// Default timeout for fetch requests (ms)
+const DEFAULT_FETCH_TIMEOUT_MS = 5000; // 5 seconds
+
+/**
+ * Wrapper around fetch that supports a timeout using AbortController.
+ * Returns the same Response object as fetch or throws on timeout/network errors.
+ */
+async function fetchWithTimeout(
+	input: RequestInfo,
+	init?: RequestInit,
+	timeoutMs = DEFAULT_FETCH_TIMEOUT_MS
+) {
+	const controller = new AbortController();
+	const id = setTimeout(() => controller.abort(), timeoutMs);
+
+	try {
+		const mergedInit = {
+			...(init || {}),
+			signal: controller.signal,
+		} as RequestInit;
+		const response = await fetch(input, mergedInit);
+		return response;
+	} finally {
+		clearTimeout(id);
+	}
+}
 
 export async function setMGrid(params: GridProps): Promise<ResponseType> {
+	let data = { m: params.m };
+	console.log('Data to be sent:', data);
 	try {
 		console.log(
 			'Calling API: ',
 			`${API_BASE_URL}/config/set-grid`,
 			' with params:',
-			params
+			params.m
 		);
-		const response = await fetch(`${API_BASE_URL}/config/set-grid`, {
+		const response = await fetchWithTimeout(`${API_BASE_URL}/config/set-grid`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
 			},
-			body: JSON.stringify(params),
+			body: JSON.stringify(data),
 		});
 
 		if (!response.ok) {
@@ -25,6 +54,8 @@ export async function setMGrid(params: GridProps): Promise<ResponseType> {
 				message: `Error: ${response.status} ${response.statusText}`,
 			};
 		}
+
+		console.log('Response from server:', await response.clone().json());
 
 		return {
 			success: true,
@@ -40,21 +71,24 @@ export async function setMGrid(params: GridProps): Promise<ResponseType> {
 	}
 }
 
-export async function setNData(params: Houses): Promise<ResponseType> {
+export async function setNData(params: GridProps): Promise<ResponseType> {
 	try {
 		console.log(
 			'Calling API: ',
 			`${API_BASE_URL}/init/generate-data`,
 			' with params:',
-			params
+			params.n
 		);
-		const response = await fetch(`${API_BASE_URL}/init/generate-data`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify(params),
-		});
+		const response = await fetchWithTimeout(
+			`${API_BASE_URL}/init/generate-data`,
+			{
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ n: params.n }),
+			}
+		);
 
 		if (!response.ok) {
 			return {
@@ -77,21 +111,24 @@ export async function setNData(params: Houses): Promise<ResponseType> {
 	}
 }
 
-export async function setHospitals(params: Hospitals): Promise<ResponseType> {
+export async function setHospitals(params: GridProps): Promise<ResponseType> {
 	try {
 		console.log(
 			'Calling API: ',
 			`${API_BASE_URL}/init/generate-hospitals`,
 			' with params:',
-			params
+			params.A
 		);
-		const response = await fetch(`${API_BASE_URL}/init/generate-hospitals`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify(params),
-		});
+		const response = await fetchWithTimeout(
+			`${API_BASE_URL}/init/generate-hospitals`,
+			{
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ A: params.A }),
+			}
+		);
 
 		if (!response.ok) {
 			return {
@@ -116,13 +153,16 @@ export async function setHospitals(params: Hospitals): Promise<ResponseType> {
 
 export async function getClusters(): Promise<ResponseType> {
 	try {
-		console.log('Calling API: ', `${API_BASE_URL}/init/assign-clusters`);
-		const response = await fetch(`${API_BASE_URL}/init/assign-clusters`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-		});
+		console.log('Calling API: ', `${API_BASE_URL}/run/assign-clusters`);
+		const response = await fetchWithTimeout(
+			`${API_BASE_URL}/run/assign-clusters`,
+			{
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+			}
+		);
 
 		if (!response.ok) {
 			return {
@@ -147,13 +187,16 @@ export async function getClusters(): Promise<ResponseType> {
 
 export async function updateHospitals(): Promise<ResponseType> {
 	try {
-		console.log('Calling API: ', `${API_BASE_URL}/init/update-hospitals`);
-		const response = await fetch(`${API_BASE_URL}/init/update-hospitals`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-		});
+		console.log('Calling API: ', `${API_BASE_URL}/run/update-hospitals`);
+		const response = await fetchWithTimeout(
+			`${API_BASE_URL}/run/update-hospitals`,
+			{
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+			}
+		);
 
 		if (!response.ok) {
 			return {
@@ -176,11 +219,42 @@ export async function updateHospitals(): Promise<ResponseType> {
 	}
 }
 
-export async function getState(): Promise<ResponseType> {
+export async function getMetricsApi(): Promise<ResponseType> {
 	try {
-		console.log('Calling API: ', `${API_BASE_URL}/state`);
-		const response = await fetch(`${API_BASE_URL}/state`, {
-			method: 'POST',
+		console.log('Calling API: ', `${API_BASE_URL}/run/metrics`);
+		const response = await fetchWithTimeout(`${API_BASE_URL}/run/metrics`, {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+		});
+
+		if (!response.ok) {
+			return {
+				success: false,
+				message: `Error: ${response.status} ${response.statusText}`,
+			};
+		}
+
+		return {
+			success: true,
+			message: 'Stategotten successfully',
+			data: await response.json(),
+		};
+	} catch (error: any) {
+		console.error(error);
+		return {
+			success: false,
+			message: error.message ? error.message : 'An unexpected error occurred',
+		};
+	}
+}
+
+export async function getStatus(): Promise<ResponseType> {
+	try {
+		console.log('Calling API: ', `${API_BASE_URL}/status`);
+		const response = await fetchWithTimeout(`${API_BASE_URL}/status`, {
+			method: 'GET',
 			headers: {
 				'Content-Type': 'application/json',
 			},
