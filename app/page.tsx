@@ -4,8 +4,14 @@ import { useState, useEffect } from 'react';
 import Button from '@/components/button';
 import Card from '@/components/card';
 import GridVisualization from '@/components/grid';
-import StatsGrid from '@/components/stats';
-('@/components/stats');
+import {
+	Clusters,
+	GridProps,
+	GridState,
+	Hospitals,
+	Houses,
+	UpdatedHospitals,
+} from '@/types/Grid';
 
 interface Residence {
 	x: number;
