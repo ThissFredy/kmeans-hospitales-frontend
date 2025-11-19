@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 	description:
 		'Optimización de la ubicación de hospitales utilizando el algoritmo K-Means.',
 	icons: {
-		icon: '/favicon.ico',
+		icon: '/favicon.jpg',
 	},
 };
 

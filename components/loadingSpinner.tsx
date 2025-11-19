@@ -3,7 +3,7 @@ export default function Loading() {
 		<main className="bg-white text-gray-700 flex flex-col items-center justify-center p-4 min-h-screen">
 			{/* Spinner SVG con 'animate-spin' de Tailwind */}
 			<svg
-				className="w-16 h-16 text-green-700 animate-spin mb-6"
+				className="w-16 h-16 text-blue-700 animate-spin mb-6"
 				xmlns="http://www.w3.org/2000/svg"
 				fill="none"
 				viewBox="0 0 24 24"

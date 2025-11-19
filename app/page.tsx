@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Button from '@/components/button';
-import Status from '@/components/status';
-import Card from '@/components/card';
+import Button from '@/components/button'; // Asegúrate de que este botón acepte className extra
 import toast from 'react-hot-toast';
-import GridVisualization from '@/components/grid'; // Tu nuevo componente visual
+import GridVisualization from '@/components/grid';
+import Loading from '@/components/loadingSpinner';
 import {
 	setMGrid,
 	setNData,
@@ -15,6 +14,19 @@ import {
 	getMetricsApi,
 	getStatus,
 } from '@/api/api';
+// Importamos iconos para una UI profesional
+import {
+	LayoutGrid,
+	Users,
+	Building2,
+	RefreshCw,
+	Play,
+	RotateCcw,
+	Activity,
+	MapPin,
+	BarChart3,
+	CheckCircle2,
+} from 'lucide-react';
 
 // Interfaces
 interface Residence {
@@ -46,7 +58,6 @@ export default function HospitalPlacementOptimizer() {
 	const [facilities, setFacilities] = useState<Facility[]>([]);
 
 	// --- Control de Flujo ---
-	// 0: Inicio, 1: GridOK, 2: CasasOK, 3: HospitalesOK, 4: Asignado, 5: Actualizado
 	const [step, setStep] = useState(0);
 	const [loading, setLoading] = useState(false);
 
@@ -56,11 +67,11 @@ export default function HospitalPlacementOptimizer() {
 		try {
 			const res = await setMGrid({ m: size });
 			if (!res.success) throw new Error(res.message);
-
 			setGridSize(size);
 			setResidences([]);
 			setFacilities([]);
-			setStep(1); // Avanzamos al paso 1
+			setStep(1);
+			toast.success('Grid configurado');
 		} catch (error) {
 			console.error(error);
 			toast.error('Error configurando Grid');
@@ -75,7 +86,6 @@ export default function HospitalPlacementOptimizer() {
 		try {
 			const res = await setNData({ n: numResidences });
 			if (!res.success) toast.error('Error: ' + res.message);
-
 			const newResidences: Residence[] = res.data.data.map(
 				(coords: [number, number]) => ({
 					x: coords[0],
@@ -83,9 +93,9 @@ export default function HospitalPlacementOptimizer() {
 					clusterId: null,
 				})
 			);
-
 			setResidences(newResidences);
-			setStep(2); // Avanzamos al paso 2
+			setStep(2);
+			toast.success('Población generada');
 		} catch (error) {
 			console.error(error);
 			toast.error('Error generando casas');
@@ -94,34 +104,25 @@ export default function HospitalPlacementOptimizer() {
 		}
 	};
 
-	// Obtener Métricas Iniciales
-
+	// Obtener Métricas
 	const getMetrics = async () => {
-		console.log('Fetching initial metrics...');
 		try {
 			const res = await getMetricsApi();
 			if (!res.success) toast.error('Error: ' + res.message);
-			console.log('Current State Metrics:', res.data);
 			setAverageDistance(res.data.average_distance);
 			setInertia(res.data.inertia);
 		} catch (error) {
 			console.error(error);
-			toast.error('Error obteniendo métricas');
 		}
 	};
 
-	// Funcion que se ejecuta cada 10 segundos para estado del backend
+	// Polling Backend Status
 	useEffect(() => {
 		const interval = setInterval(async () => {
 			setStatusBackend('loading');
 			const response = await getStatus();
-			if (response.success) {
-				setStatusBackend('success');
-			} else {
-				setStatusBackend('error');
-			}
+			setStatusBackend(response.success ? 'success' : 'error');
 		}, 10000);
-
 		return () => clearInterval(interval);
 	}, []);
 
@@ -131,7 +132,6 @@ export default function HospitalPlacementOptimizer() {
 		try {
 			const res = await setHospitals({ A: numFacilities });
 			if (!res.success) toast.error('Error: ' + res.message);
-
 			const newFacilities: Facility[] = res.data.hospitals.map(
 				(coords: [number, number], index: number) => ({
 					x: coords[0],
@@ -139,9 +139,9 @@ export default function HospitalPlacementOptimizer() {
 					id: index,
 				})
 			);
-
 			setFacilities(newFacilities);
-			setStep(3); // Avanzamos al paso 3 (Listo para empezar K-Means)
+			setStep(3);
+			toast.success('Hospitales inicializados');
 		} catch (error) {
 			console.error(error);
 			toast.error('Error generando hospitales');
@@ -156,15 +156,13 @@ export default function HospitalPlacementOptimizer() {
 		try {
 			const res = await getClusters();
 			if (!res.success) toast.error('Error: ' + res.message);
-
 			const clusterIndices = res.data.clusters;
 			const updatedResidences = residences.map((res, i) => ({
 				...res,
 				clusterId: clusterIndices[i],
 			}));
-
 			setResidences(updatedResidences);
-			setStep(4); // Bloqueamos "Asignar", habilitamos "Actualizar"
+			setStep(4);
 		} catch (error) {
 			console.error(error);
 			toast.error('Error asignando clusters');
@@ -179,16 +177,15 @@ export default function HospitalPlacementOptimizer() {
 		try {
 			const res = await updateHospitals();
 			if (!res.success) toast.error('Error: ' + res.message);
-
 			const newCoords = res.data.hospitals;
 			const updatedFacilities = facilities.map((fac, i) => ({
 				...fac,
 				x: Math.round(newCoords[i][0]),
 				y: Math.round(newCoords[i][1]),
 			}));
-
 			setFacilities(updatedFacilities);
-			setStep(5); // Bloqueamos "Actualizar", habilitamos "Asignar" para iterar
+			setStep(5);
+			toast.success('Centroides optimizados');
 		} catch (error) {
 			console.error(error);
 			toast.error('Error actualizando hospitales');
@@ -203,216 +200,312 @@ export default function HospitalPlacementOptimizer() {
 		setResidences([]);
 		setFacilities([]);
 		setStep(0);
+		setAverageDistance(0);
+		setInertia(0);
 	};
 
 	return (
-		<div className="min-h-screen bg-white">
-			{/* Header */}
-			<header className="border-b border-border bg-white sticky top-0 z-50">
-				<div className=" mx-auto px-6 py-4">
-					<h1 className="text-2xl font-bold text-gray-800">
-						K-Means: Ubicación de Hospitales
-					</h1>
-					<div className="text-sm text-gray-500">
-						Optimización de la ubicación de hospitales utilizando el algoritmo
-						K-Means.
+		<div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+			{/* Navbar Minimalista */}
+			<header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+					<div className="flex items-center gap-3">
+						<div className="bg-indigo-600 p-2 rounded-lg">
+							<Activity className="text-white w-5 h-5" />
+						</div>
+						<div>
+							<h1 className="text-xl font-bold text-slate-800">
+								Hospital AI Optimizer
+							</h1>
+							<p className="text-xs text-slate-500 hidden sm:block">
+								Algoritmo K-Means para infraestructura urbana
+							</p>
+						</div>
+					</div>
+
+					{/* Indicador de estado del servidor */}
+					<div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full border border-slate-200">
+						<div
+							className={`w-2.5 h-2.5 rounded-full ${
+								statusBackend === 'success'
+									? 'bg-emerald-500 animate-pulse'
+									: statusBackend === 'error'
+										? 'bg-red-500'
+										: 'bg-yellow-500'
+							}`}
+						/>
+						<span className="text-xs font-medium text-slate-600">
+							{statusBackend === 'success' ? 'Sistema Online' : 'Conectando...'}
+						</span>
 					</div>
 				</div>
 			</header>
 
-			<main className="mx-auto px-6 py-8">
-				<Status status={statusBackend} nombre="Estado del Backend" />
-				<div className="flex">
-					<div className="lg:col-span-4 flex flex-col gap-6 mr-6 w-full max-w-md">
-						<Card className="p-6 bg-white shadow-xl border border-gray-200 rounded-xl">
-							<h2 className="text-lg font-semibold mb-4 text-gray-700">
-								Panel de Control
-							</h2>
+			<main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+				<div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+					{/* COLUMNA IZQUIERDA: Panel de Control (30% ancho) */}
+					<div className="lg:col-span-4 flex flex-col gap-6">
+						{/* Tarjeta de Configuración */}
+						<div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+							<div className="p-4 border-b border-slate-100 bg-slate-50/50">
+								<h2 className="font-semibold text-slate-700 flex items-center gap-2">
+									<LayoutGrid className="w-4 h-4 text-indigo-500" />
+									Configuración del Modelo
+								</h2>
+							</div>
 
-							<div className="space-y-6">
+							<div className="p-5 space-y-6">
 								{/* Paso 1: Grid */}
 								<div
-									className={`p-4 rounded-lg border ${step === 0 ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-100'}`}
+									className={`transition-all duration-300 ${step > 0 ? 'opacity-50 pointer-events-none grayscale' : ''}`}
 								>
-									<label className="text-xs font-bold text-gray-500 uppercase">
-										1. Universo (m x m)
+									<label className="text-xs font-bold text-slate-500 uppercase flex justify-between mb-2">
+										<span>Dimensiones (m x m)</span>
+										{step > 0 && (
+											<CheckCircle2 className="w-4 h-4 text-emerald-500" />
+										)}
 									</label>
-									<div className="flex gap-2 mt-2">
+									<div className="flex gap-2">
 										<input
 											type="number"
 											value={size}
-											onChange={(e) => {
-												setSize(parseInt(e.target.value));
-											}}
+											onChange={(e) => setSize(parseInt(e.target.value))}
 											disabled={step > 0}
-											className="w-20 px-2 py-1 border rounded bg-white disabled:text-gray-400"
+											className="w-24 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
 										/>
 										<Button
 											onClick={handleSetGrid}
-											disabled={step > 0 || loading} // Se bloquea si ya avanzamos
-											className={`flex-1 text-sm rounded-md ${step > 0 ? 'opacity-50 cursor-not-allowed' : 'bg-emerald-500 text-white hover:bg-emerald-700'}`}
+											disabled={step > 0 || loading}
+											className="flex-1 bg-slate-900 text-white hover:bg-slate-800 rounded-lg text-sm py-2"
 										>
-											{step > 0 ? '✓ Listo' : 'Crear Grid'}
+											Crear Universo
 										</Button>
 									</div>
 								</div>
 
-								{/* Paso 2: Casas */}
+								{/* Paso 2: Población */}
 								<div
-									className={`p-4 rounded-lg border ${step === 1 ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-100'}`}
+									className={`transition-all duration-300 ${step !== 1 && step < 1 ? 'opacity-30 pointer-events-none' : step > 1 ? 'opacity-50 pointer-events-none grayscale' : ''}`}
 								>
-									<label className="text-xs font-bold text-gray-500 uppercase">
-										2. Población (n)
+									<label className="text-xs font-bold text-slate-500 uppercase flex justify-between mb-2">
+										<span>Densidad Poblacional</span>
+										{step > 1 && (
+											<CheckCircle2 className="w-4 h-4 text-emerald-500" />
+										)}
 									</label>
-									<div className="flex gap-2 mt-2">
-										<input
-											type="number"
-											value={numResidences}
-											onChange={(e) =>
-												setNumResidences(parseInt(e.target.value))
-											}
-											disabled={step !== 1} // Solo activo en paso 1
-											className="w-20 px-2 py-1 border rounded bg-white disabled:text-gray-400"
-										/>
+									<div className="flex gap-2">
+										<div className="relative w-24">
+											<Users className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+											<input
+												type="number"
+												value={numResidences}
+												onChange={(e) =>
+													setNumResidences(parseInt(e.target.value))
+												}
+												disabled={step !== 1}
+												className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+											/>
+										</div>
 										<Button
 											onClick={handleGenerateResidences}
 											disabled={step !== 1 || loading}
-											className={`flex-1 text-sm rounded-md ${step > 1 ? 'opacity-50 cursor-not-allowed' : step < 1 ? 'opacity-30' : 'bg-emerald-500 text-white hover:bg-emerald-700'}`}
+											className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg text-sm"
 										>
-											{step > 1 ? '✓ Listo' : 'Generar Casas'}
+											Generar Casas
 										</Button>
 									</div>
 								</div>
 
 								{/* Paso 3: Hospitales */}
 								<div
-									className={`p-4 rounded-lg border ${step === 2 ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-100'}`}
+									className={`transition-all duration-300 ${step !== 2 && step < 2 ? 'opacity-30 pointer-events-none' : step > 2 ? 'opacity-50 pointer-events-none grayscale' : ''}`}
 								>
-									<label className="text-xs font-bold text-gray-500 uppercase">
-										3. Hospitales (A)
+									<label className="text-xs font-bold text-slate-500 uppercase flex justify-between mb-2">
+										<span>Centros de Salud</span>
+										{step > 2 && (
+											<CheckCircle2 className="w-4 h-4 text-emerald-500" />
+										)}
 									</label>
-									<div className="flex gap-2 mt-2">
-										<input
-											type="number"
-											value={numFacilities}
-											onChange={(e) =>
-												setNumFacilities(parseInt(e.target.value))
-											}
-											disabled={step !== 2} // Solo activo en paso 2
-											className="w-20 px-2 py-1 border rounded bg-white disabled:text-gray-400"
-										/>
+									<div className="flex gap-2">
+										<div className="relative w-24">
+											<Building2 className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+											<input
+												type="number"
+												value={numFacilities}
+												onChange={(e) =>
+													setNumFacilities(parseInt(e.target.value))
+												}
+												disabled={step !== 2}
+												className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+											/>
+										</div>
 										<Button
 											onClick={handleGenerateHospitals}
 											disabled={step !== 2 || loading}
-											className={`flex-1 text-sm rounded-md ${step > 2 ? 'opacity-50 cursor-not-allowed' : step < 2 ? 'opacity-30' : 'bg-emerald-500 text-white hover:bg-emerald-700'}`}
+											className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg text-sm"
 										>
-											{step > 2 ? '✓ Listo' : 'Generar Hospitales'}
+											Ubicar Hospitales
 										</Button>
 									</div>
 								</div>
+							</div>
+						</div>
 
-								<hr className="border-gray-200" />
-
-								{/* Pasos Iterativos (4 y 5) */}
-								<div className="space-y-3">
-									<label className="text-xs font-bold text-gray-500 uppercase">
-										Algoritmo K-Means
-									</label>
-
-									<Button
-										onClick={handleAssignClusters}
-										// Activo SOLO si estamos en paso 3 (inicial) o paso 5 (vuelta del bucle)
-										disabled={(step !== 3 && step !== 5) || loading}
-										className={`w-full py-3 text-sm rounded-md transition-colors ${
-											step === 3 || step === 5
-												? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md'
-												: 'bg-gray-100 text-gray-400 cursor-not-allowed'
-										}`}
-									>
-										{loading && (step === 3 || step === 5)
-											? 'Calculando...'
-											: '4. Asignar Clusters'}
-									</Button>
-
-									<Button
-										onClick={handleUpdateFacilities}
-										// Activo SOLO si estamos en paso 4
-										disabled={step !== 4 || loading}
-										className={`w-full py-3 text-sm rounded-md transition-colors ${
-											step === 4
-												? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-md'
-												: 'bg-gray-100 text-gray-400 cursor-not-allowed'
-										}`}
-									>
-										{loading && step === 4
-											? 'Moviendo...'
-											: '5. Actualizar Centroides'}
-									</Button>
-								</div>
+						{/* Tarjeta de Algoritmo */}
+						<div
+							className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-opacity ${step < 3 ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}
+						>
+							<div className="p-4 border-b border-slate-100 bg-indigo-50/50 flex items-center justify-between">
+								<h2 className="font-semibold text-indigo-900 flex items-center gap-2">
+									<RefreshCw className="w-4 h-4 text-indigo-600" />
+									Iteración K-Means
+								</h2>
+								{step >= 3 && (
+									<span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-medium">
+										Fase Activa
+									</span>
+								)}
+							</div>
+							<div className="p-5 space-y-3">
+								<Button
+									onClick={handleAssignClusters}
+									disabled={(step !== 3 && step !== 5) || loading}
+									className={`w-full py-4 flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-all
+                                        ${
+																					step === 3 || step === 5
+																						? 'bg-indigo-600 text-white shadow-md hover:shadow-lg hover:-translate-y-0.5'
+																						: 'bg-slate-100 text-slate-400'
+																				}`}
+								>
+									{loading && (step === 3 || step === 5) ? (
+										<RefreshCw className="animate-spin w-4 h-4" />
+									) : (
+										<Users className="w-4 h-4" />
+									)}
+									Asignar Pacientes a Hospital más Cercano
+								</Button>
 
 								<Button
-									onClick={handleReset}
-									variant="destructive"
-									className="w-full mt-6 border-red-200 text-red-600 bg-red-50 hover:bg-red-200 p-2 rounded-md text-sm"
+									onClick={handleUpdateFacilities}
+									disabled={step !== 4 || loading}
+									className={`w-full py-4 flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-all
+                                        ${
+																					step === 4
+																						? 'bg-emerald-500 text-white shadow-md hover:shadow-lg hover:-translate-y-0.5'
+																						: 'bg-slate-100 text-slate-400'
+																				}`}
 								>
-									Reiniciar Todo
+									{loading && step === 4 ? (
+										<RefreshCw className="animate-spin w-4 h-4" />
+									) : (
+										<MapPin className="w-4 h-4" />
+									)}
+									Recalcular Ubicación Óptima (Centroides)
 								</Button>
 							</div>
-						</Card>
+						</div>
 
-						{/* Métricas */}
-						<Card className="p-6 bg-white shadow-xl border border-gray-200 rounded-xl">
-							<h3 className="text-sm font-bold text-gray-500 uppercase mb-4">
-								Estadísticas
-							</h3>
-							<div className="flex justify-between items-center py-2 border-b">
-								<span className="text-sm text-gray-600">
-									Distancia Promedio
-								</span>
-								<span className="font-mono font-bold text-indigo-600">
-									{averageDistance.toFixed(2)} unidades
-								</span>
-							</div>
-							<div className="flex justify-between items-center py-2 border-b">
-								<span className="text-sm text-gray-600">Inercia</span>
-								<span className="font-mono font-bold text-indigo-600">
-									{inertia.toFixed(2)} unidades
-								</span>
-							</div>
-							<div className="flex justify-between items-center py-2">
-								<span className="text-sm text-gray-600">Estado Actual</span>
-								<span
-									className={`text-xs font-bold px-2 py-1 rounded-full ${
-										step < 3
-											? 'bg-gray-100 text-gray-500'
-											: step === 4
-												? 'bg-indigo-100 text-indigo-700'
-												: 'bg-emerald-100 text-emerald-700'
-									}`}
-								>
-									{step < 3
-										? 'Configuración'
-										: step === 4
-											? 'Clusterizado'
-											: 'Centroides Actualizados'}
-								</span>
-							</div>
-						</Card>
+						{/* Botón Reset */}
+						{step > 0 && (
+							<button
+								onClick={handleReset}
+								className="flex items-center justify-center gap-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 py-3 rounded-lg transition-colors text-sm font-medium"
+							>
+								<RotateCcw className="w-4 h-4" />
+								Reiniciar Simulación
+							</button>
+						)}
 					</div>
 
-					{/* COLUMNA DERECHA: Visualización */}
-					<div className="lg:col-span-8">
-						<Card className="p-8 bg-white shadow-xl border border-gray-200 rounded-xl flex flex-col items-center justify-center min-h-[600px]">
-							<h2 className="text-xl font-semibold mb-6 self-start">
-								Mapa de Cobertura
-							</h2>
+					{/* COLUMNA DERECHA: Visualización (70% ancho) */}
+					<div className="lg:col-span-8 space-y-6">
+						{/* Métricas Flotantes */}
+						<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+							<div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4">
+								<div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
+									<MapPin className="w-6 h-6" />
+								</div>
+								<div>
+									<p className="text-xs text-slate-500 font-semibold uppercase">
+										Distancia Prom.
+									</p>
+									<p className="text-xl font-bold text-slate-800">
+										{averageDistance.toFixed(2)}{' '}
+										<span className="text-xs font-normal text-slate-400">
+											uds
+										</span>
+									</p>
+								</div>
+							</div>
 
-							<GridVisualization
-								gridSize={gridSize}
-								residences={residences}
-								facilities={facilities}
-							/>
-						</Card>
+							<div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4">
+								<div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
+									<BarChart3 className="w-6 h-6" />
+								</div>
+								<div>
+									<p className="text-xs text-slate-500 font-semibold uppercase">
+										Inercia (WCSS)
+									</p>
+									<p className="text-xl font-bold text-slate-800">
+										{inertia.toFixed(2)}
+									</p>
+								</div>
+							</div>
+
+							<div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4">
+								<div
+									className={`p-3 rounded-lg ${step >= 3 ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-400'}`}
+								>
+									<Activity className="w-6 h-6" />
+								</div>
+								<div>
+									<p className="text-xs text-slate-500 font-semibold uppercase">
+										Fase Actual
+									</p>
+									<p className="text-sm font-bold text-slate-800">
+										{step < 3
+											? 'Preparación'
+											: step === 4
+												? 'Clusterizado'
+												: 'Optimizado'}
+									</p>
+								</div>
+							</div>
+						</div>
+
+						{/* Canvas Principal */}
+						<div className="bg-white rounded-xl shadow-lg border border-slate-200 h-[600px] relative flex flex-col">
+							<div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-t-xl opacity-80"></div>
+
+							<div className="flex-1 p-6 overflow-hidden flex items-center justify-center bg-slate-50/50">
+								{step === 0 ? (
+									<div className="text-center text-slate-400">
+										<LayoutGrid className="w-16 h-16 mx-auto mb-4 opacity-20" />
+										<p>Configura las dimensiones para iniciar el mapa</p>
+									</div>
+								) : (
+									<GridVisualization
+										gridSize={gridSize}
+										residences={residences}
+										facilities={facilities}
+									/>
+								)}
+							</div>
+
+							<div className="bg-white border-t border-slate-100 px-6 py-3 flex justify-between items-center text-xs text-slate-400">
+								<span>Mapa Vectorial R{gridSize}</span>
+								<div className="flex gap-4">
+									<span className="flex items-center gap-1">
+										<div className="w-2 h-2 bg-indigo-500 rounded-full"></div>{' '}
+										Casas
+									</span>
+									<span className="flex items-center gap-1">
+										<div className="w-2 h-2 bg-red-500 rounded-full"></div>{' '}
+										Hospitales
+									</span>
+								</div>
+							</div>
+						</div>
 					</div>
 				</div>
 			</main>
