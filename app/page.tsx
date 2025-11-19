@@ -474,10 +474,10 @@ export default function HospitalPlacementOptimizer() {
 						</div>
 
 						{/* Canvas Principal */}
-						<div className="bg-white rounded-xl shadow-lg border border-slate-200 h-[600px] relative flex flex-col">
+						<div className="bg-white rounded-xl shadow-lg border border-slate-200 relative flex flex-col">
 							<div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-t-xl opacity-80"></div>
 
-							<div className="flex-1 p-6 overflow-hidden flex items-center justify-center bg-slate-50/50">
+							<div className="flex-1 p-6 flex items-center bg-slate-50/50">
 								{step === 0 ? (
 									<div className="text-center text-slate-400">
 										<LayoutGrid className="w-16 h-16 mx-auto mb-4 opacity-20" />
